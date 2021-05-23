@@ -2747,6 +2747,14 @@ static int menu_displaylist_parse_load_content_settings(
                MENU_SETTING_ACTION_RUN, 0, 0))
             count++;
 
+         if (menu_entries_append_enum(list,
+               msg_hash_to_str(MENU_ENUM_LABEL_VALUE_SUSPEND),
+               msg_hash_to_str(MENU_ENUM_LABEL_SUSPEND),
+               MENU_ENUM_LABEL_SUSPEND,
+               horizontal ? MENU_SETTING_ACTION_CLOSE_HORIZONTAL :
+                     MENU_SETTING_ACTION_CLOSE, 0, 0))
+            count++;
+
       /* Note: Entry type depends on whether quick menu
        * was accessed via a playlist ('horizontal content')
        * or the main menu
@@ -3028,6 +3036,88 @@ static int menu_displaylist_parse_load_content_settings(
    return count;
 }
 
+static bool playlist_entry_has_auto_save_state( const struct playlist_entry *entry )
+{
+   if (!playlist_entry_has_core(entry))
+      return false;
+
+   char content_dir_name[PATH_MAX_LENGTH];
+   char new_savestate_dir[PATH_MAX_LENGTH];
+   char basedir[PATH_MAX_LENGTH];
+
+   core_info_t *core_info = playlist_entry_get_core_info(entry);
+   const char *savestate_dir = dir_get_ptr(RARCH_DIR_SAVESTATE);
+
+   global_t   *global                          = global_get_ptr();
+   settings_t *settings                        = config_get_ptr();
+   bool sort_savefiles_enable                  = settings->bools.sort_savefiles_enable;
+   bool sort_savefiles_by_content_enable       = settings->bools.sort_savefiles_by_content_enable;
+   bool sort_savestates_enable                 = settings->bools.sort_savestates_enable;
+   bool sort_savestates_by_content_enable      = settings->bools.sort_savestates_by_content_enable;
+   bool savefiles_in_content_dir               = settings->bools.savefiles_in_content_dir;
+   bool savestates_in_content_dir              = settings->bools.savestates_in_content_dir;
+
+   content_dir_name[0]  = '\0';
+   new_savestate_dir[0] = '\0';
+   basedir[0] = '0';
+
+   fill_pathname_base_noext(basedir, entry->path, sizeof(basedir));
+
+   /* Initialize current save directories
+    * with the values from the config. */
+   strlcpy(new_savestate_dir, savestate_dir, sizeof(new_savestate_dir));
+   
+   if ((sort_savefiles_by_content_enable ||
+         sort_savestates_by_content_enable) &&
+       !string_is_empty(basedir))
+      fill_pathname_parent_dir_name(content_dir_name,
+            basedir, sizeof(content_dir_name));
+
+   
+   /* Per-core and/or per-content-directory savestates */
+   if ((sort_savestates_enable || sort_savestates_by_content_enable)
+         && !string_is_empty(savestate_dir))
+   {
+      /* Append content directory name to savestate location */
+      if (sort_savestates_by_content_enable)
+         fill_pathname_join(
+               new_savestate_dir,
+               savestate_dir,
+               content_dir_name,
+               sizeof(new_savestate_dir));
+   }
+   
+   /* Set savestate directory if empty based on content directory */
+   if (string_is_empty(new_savestate_dir) || savestates_in_content_dir)
+   {
+      strlcpy(new_savestate_dir, basedir,
+            sizeof(new_savestate_dir));
+      path_basedir(new_savestate_dir);
+   }
+
+   if (global)
+   {
+      if (path_is_directory(new_savestate_dir))
+         strlcpy(new_savestate_dir, new_savestate_dir,
+               sizeof(global->name.savestate));
+
+      if (path_is_directory(new_savestate_dir))
+      {
+         fill_pathname_dir(new_savestate_dir,
+               !string_is_empty(basedir)
+               ? basedir
+               : "",
+               FILE_PATH_STATE_EXTENSION,
+               sizeof(new_savestate_dir));
+      }
+   }
+
+   fill_pathname_noext(new_savestate_dir, new_savestate_dir,
+         ".auto", sizeof(new_savestate_dir));
+
+   return path_is_valid(new_savestate_dir);
+}
+
 static int menu_displaylist_parse_horizontal_content_actions(
       menu_handle_t *menu,
       settings_t *settings,
@@ -3079,6 +3169,13 @@ static int menu_displaylist_parse_horizontal_content_actions(
                FILE_TYPE_PLAYLIST_ENTRY, 0, idx);
       }
 #endif
+
+
+      if (playlist_entry_has_auto_save_state(entry))
+         menu_entries_append_enum(info->list,
+               msg_hash_to_str(MENU_ENUM_LABEL_VALUE_RESUME),
+               msg_hash_to_str(MENU_ENUM_LABEL_RESUME),
+               MENU_ENUM_LABEL_RESUME, FILE_TYPE_PLAYLIST_ENTRY, 0, idx);
 
       menu_entries_append_enum(info->list,
             msg_hash_to_str(MENU_ENUM_LABEL_VALUE_RUN),

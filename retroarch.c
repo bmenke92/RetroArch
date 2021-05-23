@@ -12272,7 +12272,7 @@ static void command_event_init_cheats(
 }
 #endif
 
-static void command_event_load_auto_state(global_t *global)
+static void command_event_load_auto_state(global_t *global, bool save_backup)
 {
    char savestate_name_auto[PATH_MAX_LENGTH];
    bool ret                        = false;
@@ -12293,7 +12293,22 @@ static void command_event_load_auto_state(global_t *global)
    if (!path_is_valid(savestate_name_auto))
       return;
 
-   ret = content_load_state(savestate_name_auto, false, true);
+   if (savestate_auto_load)
+      ret = content_load_state(savestate_name_auto, false, true);
+
+   // backup and clear suspended save regardless of whether we're running or resuming
+   // TODO: Create a proper "suspended" save state rather than piggybacking off autos
+   if (save_backup)
+   {
+      char backup_savestate_name[PATH_MAX_LENGTH];
+      fill_pathname_noext(backup_savestate_name, savestate_name_auto,
+         ".bak", sizeof(backup_savestate_name));
+      
+      filestream_delete(backup_savestate_name);
+      filestream_rename(savestate_name_auto, backup_savestate_name);
+   }
+
+   global->resuming_content = false;
 
    RARCH_LOG("%s: %s\n%s \"%s\" %s.\n",
          msg_hash_to_str(MSG_FOUND_AUTO_SAVESTATE_IN),
@@ -12500,7 +12515,7 @@ static bool event_init_content(
    if (event_load_save_files(p_runloop->rarch_is_sram_load_disabled))
       RARCH_LOG("[SRAM]: %s.\n",
             msg_hash_to_str(MSG_SKIPPING_SRAM_LOAD));
-
+  
 /*
    Since the operations are asynchronous we can't
    guarantee users will not use auto_load_state to cheat on
@@ -12511,8 +12526,11 @@ static bool event_init_content(
 #ifdef HAVE_CHEEVOS
    if (!cheevos_enable || !cheevos_hardcore_mode_enable)
 #endif
-      if (global && settings->bools.savestate_auto_load)
-         command_event_load_auto_state(global);
+   {
+      bool savestate_auto_load        = settings->bools.savestate_auto_load || global->resuming_content;
+      if (global && savestate_auto_load)
+         command_event_load_auto_state(global, global->resuming_content);
+   }
 
 #ifdef HAVE_BSV_MOVIE
    bsv_movie_deinit(p_runloop);
@@ -14238,12 +14256,16 @@ bool command_event(enum event_command cmd, void *data)
          driver_uninit(p_rarch, DRIVER_AUDIO_MASK);
          drivers_init(p_rarch, settings, DRIVER_AUDIO_MASK, verbosity_is_enabled());
          break;
-      case CMD_EVENT_SHUTDOWN:
+      case CMD_EVENT_SHUTDOWN: 
 #if defined(__linux__) && !defined(ANDROID)
          runloop_msg_queue_push(msg_hash_to_str(MSG_VALUE_SHUTTING_DOWN), 1, 180, true, NULL, MESSAGE_QUEUE_ICON_DEFAULT, MESSAGE_QUEUE_CATEGORY_INFO);
          command_event(CMD_EVENT_MENU_SAVE_CURRENT_CONFIG, NULL);
          command_event(CMD_EVENT_QUIT, NULL);
+      #if defined(DINGUX)
+         system("/sbin/poweroff");
+      #else
          system("shutdown -P now");
+      #endif
 #endif
          break;
       case CMD_EVENT_REBOOT:
@@ -14251,7 +14273,11 @@ bool command_event(enum event_command cmd, void *data)
          runloop_msg_queue_push(msg_hash_to_str(MSG_VALUE_REBOOTING), 1, 180, true, NULL, MESSAGE_QUEUE_ICON_DEFAULT, MESSAGE_QUEUE_CATEGORY_INFO);
          command_event(CMD_EVENT_MENU_SAVE_CURRENT_CONFIG, NULL);
          command_event(CMD_EVENT_QUIT, NULL);
+      #if defined(DINGUX)
+         system("/sbin/reboot");
+      #else
          system("shutdown -r now");
+      #endif
 #endif
          break;
       case CMD_EVENT_RESUME:

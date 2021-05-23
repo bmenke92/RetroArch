@@ -8733,7 +8733,7 @@ static bool setting_append_list(
               parent_group);
 #endif
 
-#if defined(HAVE_LAKKA)
+#if defined(HAVE_LAKKA) || defined(DINGUX)
 #ifdef HAVE_LAKKA_SWITCH
         CONFIG_ACTION(
                list, list_info,
@@ -8758,7 +8758,7 @@ static bool setting_append_list(
                MENU_ENUM_LABEL_SHUTDOWN,
                MENU_ENUM_LABEL_VALUE_SHUTDOWN,
                &group_info,
-               &subgroup_info,
+               &subgroup_info, 
                parent_group);
          MENU_SETTINGS_LIST_CURRENT_ADD_CMD(list, list_info, CMD_EVENT_SHUTDOWN);
 #endif
@@ -15408,7 +15408,7 @@ static bool setting_append_list(
                   SD_FLAG_NONE);
 #endif
 
-#if defined(HAVE_LAKKA) || defined(HAVE_ODROIDGO2)
+#if defined(HAVE_LAKKA) || defined(HAVE_ODROIDGO2) || defined(HAVE_SDL_DINGUX)
             CONFIG_BOOL(
                   list, list_info,
                   &settings->bools.menu_show_reboot,

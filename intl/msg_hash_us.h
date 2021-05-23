@@ -6215,6 +6215,10 @@ MSG_HASH(
    "Change the currently selected state slot."
    )
 MSG_HASH(
+   MENU_ENUM_LABEL_VALUE_SUSPEND,
+   "Suspend"
+   )
+MSG_HASH(
    MENU_ENUM_LABEL_VALUE_SAVE_STATE,
    "Save State"
    )

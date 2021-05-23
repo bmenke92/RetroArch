@@ -4230,6 +4230,27 @@ static int action_ok_load_state(const char *path,
    return 0;
 }
 
+static int action_ok_resume(const char *path,
+      const char *label, unsigned type, size_t idx, size_t entry_idx)
+{
+   global_t *global = global_get_ptr();
+   global->resuming_content = true;
+   const int ret = action_ok_playlist_entry_collection(path, label, type, idx, entry_idx);
+   return ret;
+}
+
+static int action_ok_suspend(const char *path,
+      const char *label, unsigned type, size_t idx, size_t entry_idx)
+{
+   settings_t *settings = config_get_ptr();
+   const bool prev_state = settings->bools.savestate_auto_save;
+   settings->bools.savestate_auto_save = true;
+   const int ret = action_ok_close_content(path, label, type, idx, entry_idx);
+   settings->bools.savestate_auto_load = prev_state;
+
+   return ret;
+}
+
 static int action_ok_save_state(const char *path,
       const char *label, unsigned type, size_t idx, size_t entry_idx)
 {
@@ -7612,6 +7633,8 @@ static int menu_cbs_init_bind_ok_compare_label(menu_file_list_cbs_t *cbs,
          {MENU_ENUM_LABEL_LOAD_ARCHIVE_DETECT_CORE,            action_ok_load_archive_detect_core},
          {MENU_ENUM_LABEL_LOAD_ARCHIVE,                        action_ok_load_archive},
          {MENU_ENUM_LABEL_CUSTOM_BIND_ALL,                     action_ok_lookup_setting}, 
+         {MENU_ENUM_LABEL_SUSPEND,                             action_ok_suspend},
+         {MENU_ENUM_LABEL_RESUME,                              action_ok_resume},
          {MENU_ENUM_LABEL_SAVE_STATE,                          action_ok_save_state},
          {MENU_ENUM_LABEL_LOAD_STATE,                          action_ok_load_state},
          {MENU_ENUM_LABEL_UNDO_LOAD_STATE,                     action_ok_undo_load_state},

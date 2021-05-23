@@ -358,6 +358,7 @@ typedef struct global
    /* Settings and/or global states specific to menus */
 #ifdef HAVE_MENU
    enum menu_action menu_prev_action;
+   bool resuming_content;
 #endif
    bool launched_from_cli;
    bool cli_load_menu_on_error;
